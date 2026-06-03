@@ -6,8 +6,8 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyApUwLMqrRzltnYFcVInJjr2Jeyws0ZOKo',
-    appId: '1:348057118012:web:cac50e0ab8dd30c6276a39',
+    apiKey: 'AIzaSyA-YWmr8E_D-s1khuNGzs9IXl4Ie6jey-c',
+    appId: '1:348057118012:android:52e97e426d961418276a39',
     messagingSenderId: '348057118012',
     projectId: 'my-billu',
     storageBucket: 'my-billu.firebasestorage.app',

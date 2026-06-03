@@ -276,12 +276,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 Expanded(
                   child: Text(
                     type == 'app_open' ? 'App Opened' : type,
-                    style: GoogleFonts.inter(fontSize: 12, color: Colors.white40),
+                    style: GoogleFonts.inter(fontSize: 12, color: Colors.white54),
                   ),
                 ),
                 if (deviceName.isNotEmpty)
                   Text(deviceName,
-                    style: GoogleFonts.inter(fontSize: 11, color: Colors.white20)),
+                    style: GoogleFonts.inter(fontSize: 11, color: Colors.white24)),
               ],
             ),
           ),

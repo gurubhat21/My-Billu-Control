@@ -24,13 +24,18 @@ jobs:
           flutter-version: '3.41.9'
           channel: 'stable'
       
-      - name: Print debug SHA-1 (add this to Firebase)
-        run: keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android 2>/dev/null | grep -E "SHA1|SHA256"
+      - name: Generate debug keystore and print SHA
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore ~/.android/debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
+          echo "=== SHA FINGERPRINTS (Add these to Firebase Console) ==="
+          keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android | grep -E "SHA1|SHA256"
+          echo "======================================================="
       
       - name: Get dependencies
         run: flutter pub get
       
-      - name: Build APK (debug for now - has SHA matching)
+      - name: Build APK
         run: flutter build apk --debug
       
       - name: Upload APK

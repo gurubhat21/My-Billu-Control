@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
 import 'screens/admin_screen.dart';
@@ -92,11 +94,14 @@ class _LoginScreenState extends State<LoginScreen>
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _isSigningIn = false;
   String? _errorMessage;
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
 
+  // Admin email that has full access
+  static const String _adminEmail = 'gurubhat21@gmail.com';
   static const String _masterPassword = '9449831316@guru';
 
   @override
@@ -123,6 +128,46 @@ class _LoginScreenState extends State<LoginScreen>
     _passwordController.dispose();
     _animController.dispose();
     super.dispose();
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isSigningIn = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final googleUser = await GoogleSignIn(scopes: ['email']).signIn();
+      if (googleUser == null) {
+        setState(() => _isSigningIn = false);
+        return;
+      }
+
+      // Check if admin email
+      if (googleUser.email != _adminEmail) {
+        await GoogleSignIn().signOut();
+        setState(() {
+          _isSigningIn = false;
+          _errorMessage = 'Access denied. Only admin can use this app.\nYour email: ${googleUser.email}';
+        });
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
+
+      setState(() => _isSigningIn = false);
+      // Now show master password
+    } catch (e) {
+      setState(() {
+        _isSigningIn = false;
+        _errorMessage = 'Sign-in failed: $e';
+      });
+    }
   }
 
   void _login() async {
@@ -167,6 +212,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isAuthenticated = FirebaseAuth.instance.currentUser != null;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -257,50 +304,168 @@ class _LoginScreenState extends State<LoginScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(
-                              'Master Password',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white60,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              style: GoogleFonts.inter(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'Enter master password',
-                                hintStyle: GoogleFonts.inter(
-                                  color: Colors.white24,
+                            // Step 1: Google Sign-in (if not authenticated)
+                            if (!isAuthenticated) ...[
+                              Text(
+                                'Step 1: Admin Authentication',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white60,
+                                  letterSpacing: 0.5,
                                 ),
-                                prefixIcon: const Icon(
-                                  Icons.lock_outline,
-                                  color: Color(0xFF7C4DFF),
-                                  size: 20,
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                height: 52,
+                                child: ElevatedButton.icon(
+                                  onPressed: _isSigningIn ? null : _signInWithGoogle,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black87,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    elevation: 2,
+                                  ),
+                                  icon: _isSigningIn
+                                      ? const SizedBox(
+                                          width: 20, height: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2))
+                                      : const Icon(Icons.mail, color: Colors.red, size: 22),
+                                  label: Text(
+                                    _isSigningIn ? 'Signing in...' : 'Sign in with Admin Gmail',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                    color: Colors.white30,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Only admin Gmail is allowed',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: Colors.white30,
+                                ),
+                              ),
+                            ],
+
+                            // Step 2: Master Password (after Google auth)
+                            if (isAuthenticated) ...[
+                              // Show authenticated email
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF4CAF50).withAlpha(20),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFF4CAF50).withAlpha(50),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 18),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        FirebaseAuth.instance.currentUser!.email ?? '',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          color: const Color(0xFF4CAF50),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                'Step 2: Master Password',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white60,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _passwordController,
+                                obscureText: _obscurePassword,
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Enter master password',
+                                  hintStyle: GoogleFonts.inter(
+                                    color: Colors.white24,
+                                  ),
+                                  prefixIcon: const Icon(
+                                    Icons.lock_outline,
+                                    color: Color(0xFF7C4DFF),
                                     size: 20,
                                   ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      color: Colors.white30,
+                                      size: 20,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscurePassword = !_obscurePassword;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                onSubmitted: (_) => _login(),
+                              ),
+                              const SizedBox(height: 24),
+                              SizedBox(
+                                height: 52,
+                                child: ElevatedButton(
+                                  onPressed: _isLoading ? null : _login,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF7C4DFF),
+                                    foregroundColor: Colors.white,
+                                    disabledBackgroundColor:
+                                        const Color(0xFF7C4DFF).withAlpha(128),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    elevation: 8,
+                                    shadowColor:
+                                        const Color(0xFF7C4DFF).withAlpha(102),
+                                  ),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Text(
+                                          'UNLOCK',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 1.5,
+                                          ),
+                                        ),
                                 ),
                               ),
-                              onSubmitted: (_) => _login(),
-                            ),
+                            ],
+
+                            // Error message
                             if (_errorMessage != null) ...[
                               const SizedBox(height: 16),
                               Container(
@@ -309,8 +474,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   color: const Color(0xFFF44336).withAlpha(26),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color:
-                                        const Color(0xFFF44336).withAlpha(51),
+                                    color: const Color(0xFFF44336).withAlpha(51),
                                   ),
                                 ),
                                 child: Row(
@@ -335,42 +499,6 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              height: 52,
-                              child: ElevatedButton(
-                                onPressed: _isLoading ? null : _login,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF7C4DFF),
-                                  foregroundColor: Colors.white,
-                                  disabledBackgroundColor:
-                                      const Color(0xFF7C4DFF).withAlpha(128),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  elevation: 8,
-                                  shadowColor:
-                                      const Color(0xFF7C4DFF).withAlpha(102),
-                                ),
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.5,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : Text(
-                                        'UNLOCK',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 1.5,
-                                        ),
-                                      ),
-                              ),
-                            ),
                           ],
                         ),
                       ),

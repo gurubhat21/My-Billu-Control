@@ -136,4 +136,58 @@ class SubscriptionService {
       'revoked': revoked,
     };
   }
+
+  /// Get activity log for a specific client
+  Future<List<Map<String, dynamic>>> getActivityLog(String email) async {
+    try {
+      final snapshot = await _subscriptions
+          .doc(email)
+          .collection('activity_log')
+          .orderBy('timestamp', descending: true)
+          .limit(200)
+          .get();
+
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (e) {
+      // If index not ready, get without ordering
+      try {
+        final snapshot = await _subscriptions
+            .doc(email)
+            .collection('activity_log')
+            .get();
+
+        final list = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+
+        list.sort((a, b) {
+          final aTime = a['timestamp'] as Timestamp?;
+          final bTime = b['timestamp'] as Timestamp?;
+          if (aTime == null && bTime == null) return 0;
+          if (aTime == null) return 1;
+          if (bTime == null) return -1;
+          return bTime.compareTo(aTime);
+        });
+
+        return list;
+      } catch (_) {
+        return [];
+      }
+    }
+  }
+
+  /// Set trial days for a client
+  Future<void> setTrialDays(String email, int days) async {
+    final trialExpiry = DateTime.now().add(Duration(days: days));
+    await _subscriptions.doc(email).update({
+      'status': 'trial',
+      'expiryDate': Timestamp.fromDate(trialExpiry),
+    });
+  }
 }

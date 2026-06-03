@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../services/subscription_service.dart';
+import 'client_detail_screen.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -214,6 +215,16 @@ class _AdminScreenState extends State<AdminScreen>
                                           index: index,
                                           effectiveStatus: _getEffectiveStatus(
                                               _filteredSubscriptions[index]),
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => ClientDetailScreen(
+                                                  clientData: _filteredSubscriptions[index],
+                                                ),
+                                              ),
+                                            ).then((_) => _loadData());
+                                          },
                                           onActivate: () => _showActivateDialog(
                                               _filteredSubscriptions[index]),
                                           onRevoke: () => _showRevokeDialog(
@@ -783,6 +794,7 @@ class _ClientCard extends StatefulWidget {
   final Map<String, dynamic> data;
   final int index;
   final String effectiveStatus;
+  final VoidCallback onTap;
   final VoidCallback onActivate;
   final VoidCallback onRevoke;
   final VoidCallback onExpiry;
@@ -795,6 +807,7 @@ class _ClientCard extends StatefulWidget {
     required this.data,
     required this.index,
     required this.effectiveStatus,
+    required this.onTap,
     required this.onActivate,
     required this.onRevoke,
     required this.onExpiry,
@@ -889,9 +902,10 @@ class _ClientCardState extends State<_ClientCard>
     final displayName = data['displayName'] ?? '';
     final deviceName = data['deviceName'] ?? '';
     final deviceModel = data['deviceModel'] ?? '';
+    final deviceId = data['deviceId'] ?? '';
     final platform = data['platform'] ?? '';
     final expiryDate = data['expiryDate'] as Timestamp?;
-    final lastOnline = data['lastOnline'] as Timestamp?;
+    final lastOnline = data['lastOnline'] as Timestamp? ?? data['lastOnlineAt'] as Timestamp?;
     final registeredAt = data['registeredAt'] as Timestamp?;
     final notes = data['notes'] ?? '';
 
@@ -899,7 +913,9 @@ class _ClientCardState extends State<_ClientCard>
       opacity: _fadeAnim,
       child: SlideTransition(
         position: _slideAnim,
-        child: Container(
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -1019,6 +1035,7 @@ class _ClientCardState extends State<_ClientCard>
                     _buildInfoGrid(
                       deviceName: deviceName,
                       deviceModel: deviceModel,
+                      deviceId: deviceId,
                       platform: platform,
                       expiryDate: expiryDate,
                       lastOnline: lastOnline,
@@ -1113,6 +1130,7 @@ class _ClientCardState extends State<_ClientCard>
             ),
           ),
         ),
+        ),
       ),
     );
   }
@@ -1120,6 +1138,7 @@ class _ClientCardState extends State<_ClientCard>
   Widget _buildInfoGrid({
     required String deviceName,
     required String deviceModel,
+    required String deviceId,
     required String platform,
     required Timestamp? expiryDate,
     required Timestamp? lastOnline,
@@ -1135,6 +1154,11 @@ class _ClientCardState extends State<_ClientCard>
         if (platform.isNotEmpty) '($platform)',
       ].join(' · ');
       rows.add(_buildInfoRow(Icons.phone_android, 'Device', deviceStr));
+    }
+
+    // Device ID
+    if (deviceId.isNotEmpty) {
+      rows.add(_buildInfoRow(Icons.fingerprint, 'ID', deviceId));
     }
 
     // Expiry

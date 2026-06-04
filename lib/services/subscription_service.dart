@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class SubscriptionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -9,28 +10,18 @@ class SubscriptionService {
   /// Get all subscriptions ordered by registeredAt
   Future<List<Map<String, dynamic>>> getAllSubscriptions() async {
     try {
-      final snapshot = await _subscriptions
-          .orderBy('registeredAt', descending: true)
-          .get();
-
-      return snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id;
-        return data;
-      }).toList();
-    } catch (e) {
-      // If ordering fails (missing index), fall back to unordered
       final snapshot = await _subscriptions.get();
+
       final list = snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
         return data;
       }).toList();
 
-      // Sort in memory
+      // Sort in memory (safe for both Timestamp and String values)
       list.sort((a, b) {
-        final aTime = a['registeredAt'] as Timestamp?;
-        final bTime = b['registeredAt'] as Timestamp?;
+        final aTime = _safeTimestamp(a['registeredAt']);
+        final bTime = _safeTimestamp(b['registeredAt']);
         if (aTime == null && bTime == null) return 0;
         if (aTime == null) return 1;
         if (bTime == null) return -1;
@@ -38,7 +29,21 @@ class SubscriptionService {
       });
 
       return list;
+    } catch (e) {
+      debugPrint('getAllSubscriptions error: $e');
+      return [];
     }
+  }
+
+  /// Safely parse a Timestamp from Firestore (handles both Timestamp and String)
+  Timestamp? _safeTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value;
+    if (value is String) {
+      final dt = DateTime.tryParse(value);
+      if (dt != null) return Timestamp.fromDate(dt);
+    }
+    return null;
   }
 
   /// Activate a subscription with an expiry date

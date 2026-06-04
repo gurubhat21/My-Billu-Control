@@ -36,6 +36,17 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     });
   }
 
+  /// Safely convert a Firestore value to Timestamp (handles both Timestamp and String)
+  Timestamp? _safeTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value;
+    if (value is String && value.isNotEmpty) {
+      final dt = DateTime.tryParse(value);
+      if (dt != null) return Timestamp.fromDate(dt);
+    }
+    return null;
+  }
+
   String _formatDateTime(Timestamp? ts) {
     if (ts == null) return 'N/A';
     return DateFormat('dd MMM yyyy, hh:mm a').format(ts.toDate());
@@ -227,8 +238,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                         icon: Icons.phone_android,
                         color: const Color(0xFF4CAF50),
                         status: (data['androidStatus'] ?? data['subscriptionStatus'] ?? status).toString(),
-                        expiryDate: data['androidExpiryDate'] as Timestamp? ?? expiryDate,
-                        lastOnlineAt: data['androidLastOnlineAt'] as Timestamp? ?? lastOnline,
+                        expiryDate: _safeTimestamp(data['androidExpiryDate']) ?? expiryDate,
+                        lastOnlineAt: _safeTimestamp(data['androidLastOnlineAt']) ?? lastOnline,
                         registeredAt: registeredAt,
                         email: email,
                         platform: 'android',
@@ -242,8 +253,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                         icon: Icons.desktop_windows,
                         color: const Color(0xFF448AFF),
                         status: (data['windowsStatus'] ?? data['subscriptionStatus'] ?? status).toString(),
-                        expiryDate: data['windowsExpiryDate'] as Timestamp? ?? expiryDate,
-                        lastOnlineAt: data['windowsLastOnlineAt'] as Timestamp? ?? lastOnline,
+                        expiryDate: _safeTimestamp(data['windowsExpiryDate']) ?? expiryDate,
+                        lastOnlineAt: _safeTimestamp(data['windowsLastOnlineAt']) ?? lastOnline,
                         registeredAt: registeredAt,
                         email: email,
                         platform: 'windows',

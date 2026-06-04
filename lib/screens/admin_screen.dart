@@ -951,6 +951,17 @@ class _ClientCardState extends State<_ClientCard>
     return '(${diff}d left)';
   }
 
+  /// Safely convert Firestore value to Timestamp (handles both Timestamp and String)
+  Timestamp? _safeTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value;
+    if (value is String && value.isNotEmpty) {
+      final dt = DateTime.tryParse(value);
+      if (dt != null) return Timestamp.fromDate(dt);
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
@@ -977,6 +988,12 @@ class _ClientCardState extends State<_ClientCard>
     final androidStatus = (data['androidStatus'] ?? '').toString();
     final windowsStatus = (data['windowsStatus'] ?? '').toString();
     final cloudSyncEnabled = data['cloudSyncEnabled'] == true;
+
+    // Platform-specific expiry dates
+    final androidExpiry = _safeTimestamp(data['androidExpiryDate']) ?? expiryDate;
+    final windowsExpiry = _safeTimestamp(data['windowsExpiryDate']) ?? expiryDate;
+    final androidLastOnline = _safeTimestamp(data['androidLastOnlineAt']) ?? lastOnline;
+    final windowsLastOnline = _safeTimestamp(data['windowsLastOnlineAt']) ?? lastOnline;
 
     return FadeTransition(
       opacity: _fadeAnim,
@@ -1151,18 +1168,33 @@ class _ClientCardState extends State<_ClientCard>
 
                     const SizedBox(height: 10),
 
-                    // Platform-specific status chips
+                    // Platform-specific status + expiry
                     if (androidStatus.isNotEmpty || windowsStatus.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (androidStatus.isNotEmpty)
-                              _buildPlatformStatusChip('Android', androidStatus, const Color(0xFF4CAF50)),
-                            if (windowsStatus.isNotEmpty)
-                              _buildPlatformStatusChip('Windows', windowsStatus, const Color(0xFF448AFF)),
+                            if (androidStatus.isNotEmpty || hasAndroid)
+                              _buildPlatformExpiryRow(
+                                'Android',
+                                Icons.phone_android,
+                                const Color(0xFF4CAF50),
+                                androidStatus.isNotEmpty ? androidStatus : status,
+                                androidExpiry,
+                                androidLastOnline,
+                              ),
+                            if (windowsStatus.isNotEmpty || hasWindows) ...[
+                              const SizedBox(height: 6),
+                              _buildPlatformExpiryRow(
+                                'Windows',
+                                Icons.desktop_windows,
+                                const Color(0xFF448AFF),
+                                windowsStatus.isNotEmpty ? windowsStatus : status,
+                                windowsExpiry,
+                                windowsLastOnline,
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -1455,6 +1487,82 @@ class _ClientCardState extends State<_ClientCard>
               fontWeight: FontWeight.w600,
               color: statusColor,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlatformExpiryRow(
+    String platform,
+    IconData icon,
+    Color color,
+    String status,
+    Timestamp? expiry,
+    Timestamp? lastOnline,
+  ) {
+    Color statusColor;
+    switch (status.toLowerCase()) {
+      case 'active':
+        statusColor = const Color(0xFF4CAF50);
+        break;
+      case 'trial':
+        statusColor = const Color(0xFFFF9800);
+        break;
+      case 'expired':
+        statusColor = const Color(0xFFF44336);
+        break;
+      case 'revoked':
+        statusColor = const Color(0xFFB71C1C);
+        break;
+      default:
+        statusColor = const Color(0xFF9E9E9E);
+    }
+
+    final expiryStr = expiry != null
+        ? DateFormat('dd MMM yyyy').format(expiry.toDate())
+        : 'N/A';
+    final daysLeft = _getDaysRemaining(expiry);
+    final lastOnlineStr = _formatRelativeTime(lastOnline);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withAlpha(10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withAlpha(25)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          // Status chip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: statusColor.withAlpha(26),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              status[0].toUpperCase() + status.substring(1),
+              style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: statusColor),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Expiry
+          Icon(Icons.event, size: 11, color: Colors.white30),
+          const SizedBox(width: 3),
+          Text(
+            '$expiryStr $daysLeft',
+            style: GoogleFonts.inter(fontSize: 10, color: Colors.white54, fontWeight: FontWeight.w500),
+          ),
+          const Spacer(),
+          // Last online
+          Icon(Icons.access_time, size: 11, color: Colors.white24),
+          const SizedBox(width: 3),
+          Text(
+            lastOnlineStr,
+            style: GoogleFonts.inter(fontSize: 10, color: Colors.white38),
           ),
         ],
       ),

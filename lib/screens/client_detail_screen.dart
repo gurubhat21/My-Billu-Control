@@ -221,17 +221,41 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
 
                       const SizedBox(height: 12),
 
-                      // ====== SUBSCRIPTION INFO ======
-                      _buildSectionCard('Subscription', Icons.card_membership, const Color(0xFF4CAF50), [
-                        _buildDetailRow(Icons.info, 'Status', status.toUpperCase()),
-                        _buildDetailRow(Icons.event, 'Expiry', expiryDate != null
-                            ? DateFormat('dd MMM yyyy').format(expiryDate.toDate())
-                            : 'N/A'),
-                        _buildDetailRow(Icons.calendar_today, 'Registered', _formatDateTime(registeredAt)),
-                        _buildDetailRow(Icons.access_time, 'Last Online', _formatRelativeTime(lastOnline)),
-                        if (lastOnline != null)
-                          _buildDetailRow(Icons.schedule, 'Last Online (exact)', _formatDateTime(lastOnline)),
-                      ]),
+                      // ====== ANDROID SUBSCRIPTION ======
+                      _buildPlatformSubscriptionCard(
+                        title: 'Android Subscription',
+                        icon: Icons.phone_android,
+                        color: const Color(0xFF4CAF50),
+                        status: (data['androidStatus'] ?? data['subscriptionStatus'] ?? status).toString(),
+                        expiryDate: data['androidExpiryDate'] as Timestamp? ?? expiryDate,
+                        lastOnlineAt: data['androidLastOnlineAt'] as Timestamp? ?? lastOnline,
+                        registeredAt: registeredAt,
+                        email: email,
+                        platform: 'android',
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // ====== WINDOWS SUBSCRIPTION ======
+                      _buildPlatformSubscriptionCard(
+                        title: 'Windows Subscription',
+                        icon: Icons.desktop_windows,
+                        color: const Color(0xFF448AFF),
+                        status: (data['windowsStatus'] ?? data['subscriptionStatus'] ?? status).toString(),
+                        expiryDate: data['windowsExpiryDate'] as Timestamp? ?? expiryDate,
+                        lastOnlineAt: data['windowsLastOnlineAt'] as Timestamp? ?? lastOnline,
+                        registeredAt: registeredAt,
+                        email: email,
+                        platform: 'windows',
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // ====== CLOUD SYNC ======
+                      _buildCloudSyncCard(
+                        email: email,
+                        cloudSyncEnabled: data['cloudSyncEnabled'] == true,
+                      ),
 
                       const SizedBox(height: 12),
 
@@ -519,6 +543,238 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPlatformSubscriptionCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required String status,
+    required Timestamp? expiryDate,
+    required Timestamp? lastOnlineAt,
+    required Timestamp? registeredAt,
+    required String email,
+    required String platform,
+  }) {
+    Color statusColor;
+    switch (status.toLowerCase()) {
+      case 'active':
+        statusColor = const Color(0xFF4CAF50);
+        break;
+      case 'trial':
+        statusColor = const Color(0xFFFF9800);
+        break;
+      case 'expired':
+        statusColor = const Color(0xFFF44336);
+        break;
+      case 'revoked':
+        statusColor = const Color(0xFFB71C1C);
+        break;
+      default:
+        statusColor = const Color(0xFF9E9E9E);
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withAlpha(13)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 10),
+                Text(title,
+                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: color)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: statusColor.withAlpha(26),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: statusColor.withAlpha(51)),
+                  ),
+                  child: Text(status.toUpperCase(),
+                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: statusColor)),
+                ),
+              ],
+            ),
+          ),
+          Divider(color: Colors.white.withAlpha(10), height: 1),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                _buildDetailRow(Icons.event, 'Expiry', expiryDate != null
+                    ? DateFormat('dd MMM yyyy').format(expiryDate.toDate())
+                    : 'N/A'),
+                _buildDetailRow(Icons.access_time, 'Last Online', _formatRelativeTime(lastOnlineAt)),
+                if (lastOnlineAt != null)
+                  _buildDetailRow(Icons.schedule, 'Last Online (exact)', _formatDateTime(lastOnlineAt)),
+                _buildDetailRow(Icons.calendar_today, 'Registered', _formatDateTime(registeredAt)),
+              ],
+            ),
+          ),
+          Divider(color: Colors.white.withAlpha(10), height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _buildActionChip('Activate', Icons.check_circle_outline, const Color(0xFF4CAF50), () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now().add(const Duration(days: 30)),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                  );
+                  if (picked == null || !mounted) return;
+                  try {
+                    await _service.activateSubscription(email, picked, platform: platform);
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Activated $platform for $email until ${DateFormat('dd MMM yyyy').format(picked)}'),
+                      backgroundColor: const Color(0xFF4CAF50),
+                    ));
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Error: $e'), backgroundColor: const Color(0xFFF44336),
+                    ));
+                  }
+                }),
+                _buildActionChip('Set Expiry', Icons.event, const Color(0xFF448AFF), () async {
+                  DateTime initial = expiryDate?.toDate() ?? DateTime.now().add(const Duration(days: 30));
+                  if (initial.isBefore(DateTime.now())) {
+                    initial = DateTime.now().add(const Duration(days: 30));
+                  }
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: initial,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                  );
+                  if (picked == null || !mounted) return;
+                  try {
+                    await _service.updateExpiry(email, picked, platform: platform);
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('$platform expiry updated to ${DateFormat('dd MMM yyyy').format(picked)}'),
+                      backgroundColor: const Color(0xFF4CAF50),
+                    ));
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Error: $e'), backgroundColor: const Color(0xFFF44336),
+                    ));
+                  }
+                }),
+                _buildActionChip('Revoke', Icons.block, const Color(0xFFF44336), () async {
+                  try {
+                    await _service.revokeSubscription(email, platform: platform);
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Revoked $platform access for $email'),
+                      backgroundColor: const Color(0xFFF44336),
+                    ));
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Error: $e'), backgroundColor: const Color(0xFFF44336),
+                    ));
+                  }
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionChip(String label, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withAlpha(20),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withAlpha(51)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 5),
+            Text(label,
+              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCloudSyncCard({
+    required String email,
+    required bool cloudSyncEnabled,
+  }) {
+    return StatefulBuilder(
+      builder: (context, setCardState) {
+        bool syncEnabled = cloudSyncEnabled;
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(8),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withAlpha(13)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Icon(Icons.cloud_sync, size: 18, color: const Color(0xFF7C4DFF)),
+                const SizedBox(width: 10),
+                Text('Cloud Sync',
+                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF7C4DFF))),
+                const Spacer(),
+                Text(syncEnabled ? 'Enabled' : 'Disabled',
+                  style: GoogleFonts.inter(
+                    fontSize: 12, fontWeight: FontWeight.w500,
+                    color: syncEnabled ? const Color(0xFF4CAF50) : Colors.white38,
+                  )),
+                const SizedBox(width: 8),
+                Switch(
+                  value: syncEnabled,
+                  activeColor: const Color(0xFF7C4DFF),
+                  onChanged: (value) async {
+                    try {
+                      await _service.toggleCloudSync(email, value);
+                      setCardState(() => syncEnabled = value);
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Cloud sync ${value ? 'enabled' : 'disabled'} for $email'),
+                        backgroundColor: const Color(0xFF7C4DFF),
+                      ));
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'), backgroundColor: const Color(0xFFF44336),
+                      ));
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

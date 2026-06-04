@@ -973,6 +973,11 @@ class _ClientCardState extends State<_ClientCard>
     final windowsDeviceName = data['windowsDeviceName'] ?? '';
     final windowsDeviceModel = data['windowsDeviceModel'] ?? '';
 
+    // Platform-specific subscription status
+    final androidStatus = (data['androidStatus'] ?? '').toString();
+    final windowsStatus = (data['windowsStatus'] ?? '').toString();
+    final cloudSyncEnabled = data['cloudSyncEnabled'] == true;
+
     return FadeTransition(
       opacity: _fadeAnim,
       child: SlideTransition(
@@ -1090,6 +1095,19 @@ class _ClientCardState extends State<_ClientCard>
                             ),
                           ),
                         ),
+                        // Cloud sync badge
+                        if (cloudSyncEnabled) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7C4DFF).withAlpha(26),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFF7C4DFF).withAlpha(51)),
+                            ),
+                            child: const Icon(Icons.cloud_sync, size: 14, color: Color(0xFF7C4DFF)),
+                          ),
+                        ],
                         const SizedBox(width: 6),
                         // Platform badges
                         if (hasAndroid)
@@ -1131,7 +1149,23 @@ class _ClientCardState extends State<_ClientCard>
                       ],
                     ),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
+
+                    // Platform-specific status chips
+                    if (androidStatus.isNotEmpty || windowsStatus.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            if (androidStatus.isNotEmpty)
+                              _buildPlatformStatusChip('Android', androidStatus, const Color(0xFF4CAF50)),
+                            if (windowsStatus.isNotEmpty)
+                              _buildPlatformStatusChip('Windows', windowsStatus, const Color(0xFF448AFF)),
+                          ],
+                        ),
+                      ),
 
                     // Info rows
                     _buildInfoGrid(
@@ -1375,6 +1409,54 @@ class _ClientCardState extends State<_ClientCard>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPlatformStatusChip(String platform, String status, Color platformColor) {
+    Color statusColor;
+    switch (status.toLowerCase()) {
+      case 'active':
+        statusColor = const Color(0xFF4CAF50);
+        break;
+      case 'trial':
+        statusColor = const Color(0xFFFF9800);
+        break;
+      case 'expired':
+        statusColor = const Color(0xFFF44336);
+        break;
+      case 'revoked':
+        statusColor = const Color(0xFFB71C1C);
+        break;
+      default:
+        statusColor = const Color(0xFF9E9E9E);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: statusColor.withAlpha(18),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: statusColor.withAlpha(38)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            platform == 'Android' ? Icons.phone_android : Icons.desktop_windows,
+            size: 11,
+            color: platformColor.withAlpha(179),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$platform: ${status[0].toUpperCase()}${status.substring(1)}',
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: statusColor,
+            ),
+          ),
+        ],
       ),
     );
   }

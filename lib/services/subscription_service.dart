@@ -42,20 +42,37 @@ class SubscriptionService {
   }
 
   /// Activate a subscription with an expiry date
-  Future<void> activateSubscription(String email, DateTime expiryDate) async {
-    await _subscriptions.doc(email).update({
-      'status': 'active',
-      'expiryDate': Timestamp.fromDate(expiryDate),
-      'activatedAt': FieldValue.serverTimestamp(),
-    });
+  Future<void> activateSubscription(String email, DateTime expiryDate, {String platform = 'all'}) async {
+    final updates = <String, dynamic>{};
+    if (platform == 'android' || platform == 'all') {
+      updates['androidExpiryDate'] = Timestamp.fromDate(expiryDate);
+      updates['androidStatus'] = 'active';
+    }
+    if (platform == 'windows' || platform == 'all') {
+      updates['windowsExpiryDate'] = Timestamp.fromDate(expiryDate);
+      updates['windowsStatus'] = 'active';
+    }
+    // Also update legacy fields
+    updates['subscriptionStatus'] = 'active';
+    updates['status'] = 'active';
+    updates['expiryDate'] = Timestamp.fromDate(expiryDate);
+    updates['activatedAt'] = FieldValue.serverTimestamp();
+    await _subscriptions.doc(email).update(updates);
   }
 
   /// Revoke a subscription
-  Future<void> revokeSubscription(String email) async {
-    await _subscriptions.doc(email).update({
-      'status': 'revoked',
-      'revokedAt': FieldValue.serverTimestamp(),
-    });
+  Future<void> revokeSubscription(String email, {String platform = 'all'}) async {
+    final updates = <String, dynamic>{};
+    if (platform == 'android' || platform == 'all') {
+      updates['androidStatus'] = 'revoked';
+    }
+    if (platform == 'windows' || platform == 'all') {
+      updates['windowsStatus'] = 'revoked';
+    }
+    updates['subscriptionStatus'] = 'revoked';
+    updates['status'] = 'revoked';
+    updates['revokedAt'] = FieldValue.serverTimestamp();
+    await _subscriptions.doc(email).update(updates);
   }
 
   /// Migrate device - clears device binding and logs reason
@@ -107,11 +124,22 @@ class SubscriptionService {
     await _subscriptions.doc(email).delete();
   }
 
+  /// Toggle cloud sync for a client
+  Future<void> toggleCloudSync(String email, bool enabled) async {
+    await _subscriptions.doc(email).update({'cloudSyncEnabled': enabled});
+  }
+
   /// Update expiry date only
-  Future<void> updateExpiry(String email, DateTime newExpiry) async {
-    await _subscriptions.doc(email).update({
-      'expiryDate': Timestamp.fromDate(newExpiry),
-    });
+  Future<void> updateExpiry(String email, DateTime newExpiry, {String platform = 'all'}) async {
+    final updates = <String, dynamic>{};
+    if (platform == 'android' || platform == 'all') {
+      updates['androidExpiryDate'] = Timestamp.fromDate(newExpiry);
+    }
+    if (platform == 'windows' || platform == 'all') {
+      updates['windowsExpiryDate'] = Timestamp.fromDate(newExpiry);
+    }
+    updates['expiryDate'] = Timestamp.fromDate(newExpiry);
+    await _subscriptions.doc(email).update(updates);
   }
 
   /// Get subscription statistics
@@ -121,7 +149,8 @@ class SubscriptionService {
 
     for (final doc in snapshot.docs) {
       final data = doc.data() as Map<String, dynamic>;
-      final status = (data['status'] ?? '').toString().toLowerCase();
+      // Check both legacy 'status' and new 'subscriptionStatus'
+      final status = (data['subscriptionStatus'] ?? data['status'] ?? '').toString().toLowerCase();
 
       switch (status) {
         case 'active':
@@ -203,11 +232,20 @@ class SubscriptionService {
   }
 
   /// Set trial days for a client
-  Future<void> setTrialDays(String email, int days) async {
+  Future<void> setTrialDays(String email, int days, {String platform = 'all'}) async {
     final trialExpiry = DateTime.now().add(Duration(days: days));
-    await _subscriptions.doc(email).update({
-      'status': 'trial',
-      'expiryDate': Timestamp.fromDate(trialExpiry),
-    });
+    final updates = <String, dynamic>{};
+    if (platform == 'android' || platform == 'all') {
+      updates['androidExpiryDate'] = Timestamp.fromDate(trialExpiry);
+      updates['androidStatus'] = 'trial';
+    }
+    if (platform == 'windows' || platform == 'all') {
+      updates['windowsExpiryDate'] = Timestamp.fromDate(trialExpiry);
+      updates['windowsStatus'] = 'trial';
+    }
+    updates['subscriptionStatus'] = 'trial';
+    updates['status'] = 'trial';
+    updates['expiryDate'] = Timestamp.fromDate(trialExpiry);
+    await _subscriptions.doc(email).update(updates);
   }
 }

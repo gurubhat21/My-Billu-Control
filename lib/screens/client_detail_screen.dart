@@ -266,7 +266,18 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                       _buildCloudSyncCard(
                         email: email,
                         cloudSyncEnabled: data['cloudSyncEnabled'] == true,
+                        cloudSyncRequested: data['cloudSyncRequested'] == true,
                       ),
+
+                      // ====== MIGRATION REQUEST ======
+                      if (data['migrationRequested'] == true) ...[
+                        const SizedBox(height: 12),
+                        _buildMigrationRequestCard(
+                          email: email,
+                          platform: (data['migrationPlatform'] ?? 'all').toString(),
+                          requestedAt: _safeTimestamp(data['migrationRequestedAt']),
+                        ),
+                      ],
 
                       const SizedBox(height: 12),
 
@@ -736,10 +747,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   Widget _buildCloudSyncCard({
     required String email,
     required bool cloudSyncEnabled,
+    required bool cloudSyncRequested,
   }) {
     return StatefulBuilder(
       builder: (context, setCardState) {
         bool syncEnabled = cloudSyncEnabled;
+        bool requested = cloudSyncRequested;
         return Container(
           decoration: BoxDecoration(
             color: Colors.white.withAlpha(8),
@@ -748,38 +761,236 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           ),
           child: Padding(
             padding: const EdgeInsets.all(14),
-            child: Row(
+            child: Column(
               children: [
-                Icon(Icons.cloud_sync, size: 18, color: const Color(0xFF7C4DFF)),
-                const SizedBox(width: 10),
-                Text('Cloud Sync',
-                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF7C4DFF))),
-                const Spacer(),
-                Text(syncEnabled ? 'Enabled' : 'Disabled',
-                  style: GoogleFonts.inter(
-                    fontSize: 12, fontWeight: FontWeight.w500,
-                    color: syncEnabled ? const Color(0xFF4CAF50) : Colors.white38,
-                  )),
-                const SizedBox(width: 8),
-                Switch(
-                  value: syncEnabled,
-                  activeColor: const Color(0xFF7C4DFF),
-                  onChanged: (value) async {
-                    try {
-                      await _service.toggleCloudSync(email, value);
-                      setCardState(() => syncEnabled = value);
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text('Cloud sync ${value ? 'enabled' : 'disabled'} for $email'),
-                        backgroundColor: const Color(0xFF7C4DFF),
-                      ));
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text('Error: $e'), backgroundColor: const Color(0xFFF44336),
-                      ));
-                    }
-                  },
+                Row(
+                  children: [
+                    Icon(Icons.cloud_sync, size: 18, color: const Color(0xFF7C4DFF)),
+                    const SizedBox(width: 10),
+                    Text('Cloud Sync',
+                      style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF7C4DFF))),
+                    const Spacer(),
+                    Text(syncEnabled ? 'Enabled' : 'Disabled',
+                      style: GoogleFonts.inter(
+                        fontSize: 12, fontWeight: FontWeight.w500,
+                        color: syncEnabled ? const Color(0xFF4CAF50) : Colors.white38,
+                      )),
+                    const SizedBox(width: 8),
+                    Switch(
+                      value: syncEnabled,
+                      activeColor: const Color(0xFF7C4DFF),
+                      onChanged: (value) async {
+                        try {
+                          await _service.toggleCloudSync(email, value);
+                          setCardState(() => syncEnabled = value);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Cloud sync ${value ? 'enabled' : 'disabled'} for $email'),
+                            backgroundColor: const Color(0xFF7C4DFF),
+                          ));
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Error: $e'), backgroundColor: const Color(0xFFF44336),
+                          ));
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                // Show request badge if requested
+                if (requested) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF9800).withAlpha(15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFF9800).withAlpha(40)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.notifications_active, size: 16, color: Color(0xFFFF9800)),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text('User requested cloud sync',
+                          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFFFF9800), fontWeight: FontWeight.w500))),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () async {
+                            try {
+                              await _service.approveCloudSync(email);
+                              setCardState(() { syncEnabled = true; requested = false; });
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('Cloud sync approved for $email'),
+                                backgroundColor: const Color(0xFF4CAF50),
+                              ));
+                            } catch (e) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('Error: $e'), backgroundColor: const Color(0xFFF44336),
+                              ));
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4CAF50).withAlpha(26),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text('Approve', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF4CAF50))),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () async {
+                            try {
+                              await _service.denyCloudSync(email);
+                              setCardState(() => requested = false);
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('Cloud sync request denied for $email'),
+                                backgroundColor: const Color(0xFFF44336),
+                              ));
+                            } catch (e) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('Error: $e'), backgroundColor: const Color(0xFFF44336),
+                              ));
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF44336).withAlpha(26),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text('Deny', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFF44336))),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMigrationRequestCard({
+    required String email,
+    required String platform,
+    required Timestamp? requestedAt,
+  }) {
+    final platformLabel = platform == 'all' ? 'All Platforms' : platform[0].toUpperCase() + platform.substring(1);
+    final platformColor = platform == 'android' ? const Color(0xFF4CAF50) : platform == 'windows' ? const Color(0xFF448AFF) : const Color(0xFFFF9800);
+
+    return StatefulBuilder(
+      builder: (context, setCardState) {
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF9800).withAlpha(8),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFFF9800).withAlpha(30)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.swap_horiz, size: 18, color: Color(0xFFFF9800)),
+                    const SizedBox(width: 10),
+                    Text('Migration Requested',
+                      style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFFFF9800))),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: platformColor.withAlpha(26),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(platformLabel,
+                        style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: platformColor)),
+                    ),
+                  ],
+                ),
+                if (requestedAt != null) ...[
+                  const SizedBox(height: 8),
+                  Text('Requested: ${_formatDateTime(requestedAt)}',
+                    style: GoogleFonts.inter(fontSize: 11, color: Colors.white38)),
+                ],
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: GestureDetector(
+                      onTap: () async {
+                        try {
+                          await _service.approveMigration(email);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Migration approved for $email ($platformLabel)'),
+                            backgroundColor: const Color(0xFF4CAF50),
+                          ));
+                          setState(() {}); // Refresh parent
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Error: $e'), backgroundColor: const Color(0xFFF44336),
+                          ));
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4CAF50).withAlpha(20),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF4CAF50).withAlpha(51)),
+                        ),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          const Icon(Icons.check_circle, size: 14, color: Color(0xFF4CAF50)),
+                          const SizedBox(width: 6),
+                          Text('Approve', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF4CAF50))),
+                        ]),
+                      ),
+                    )),
+                    const SizedBox(width: 10),
+                    Expanded(child: GestureDetector(
+                      onTap: () async {
+                        try {
+                          await _service.denyMigration(email);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Migration denied for $email'),
+                            backgroundColor: const Color(0xFFF44336),
+                          ));
+                          setState(() {}); // Refresh parent
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Error: $e'), backgroundColor: const Color(0xFFF44336),
+                          ));
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF44336).withAlpha(20),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFF44336).withAlpha(51)),
+                        ),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          const Icon(Icons.cancel, size: 14, color: Color(0xFFF44336)),
+                          const SizedBox(width: 6),
+                          Text('Deny', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFFF44336))),
+                        ]),
+                      ),
+                    )),
+                  ],
                 ),
               ],
             ),
@@ -788,6 +999,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       },
     );
   }
+
 
   void _showMigrateDialog(String email, String platform) {
     final reasonController = TextEditingController();

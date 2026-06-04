@@ -248,4 +248,46 @@ class SubscriptionService {
     updates['expiryDate'] = Timestamp.fromDate(trialExpiry);
     await _subscriptions.doc(email).update(updates);
   }
+
+  /// Approve cloud sync request
+  Future<void> approveCloudSync(String email) async {
+    await _subscriptions.doc(email).update({
+      'cloudSyncEnabled': true,
+      'cloudSyncRequested': false,
+      'cloudSyncApprovedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Deny cloud sync request
+  Future<void> denyCloudSync(String email) async {
+    await _subscriptions.doc(email).update({
+      'cloudSyncRequested': false,
+    });
+  }
+
+  /// Approve migration request
+  Future<void> approveMigration(String email) async {
+    final doc = await _subscriptions.doc(email).get();
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final platform = (data['migrationPlatform'] ?? 'all').toString();
+
+    // Clear device binding for the requested platform
+    await migrateDevice(email, 'User requested migration', platform: platform);
+
+    // Clear request flags
+    await _subscriptions.doc(email).update({
+      'migrationRequested': false,
+      'migrationPlatform': FieldValue.delete(),
+      'migrationRequestedAt': FieldValue.delete(),
+    });
+  }
+
+  /// Deny migration request
+  Future<void> denyMigration(String email) async {
+    await _subscriptions.doc(email).update({
+      'migrationRequested': false,
+      'migrationPlatform': FieldValue.delete(),
+      'migrationRequestedAt': FieldValue.delete(),
+    });
+  }
 }

@@ -1166,6 +1166,34 @@ class _ClientCardState extends State<_ClientCard>
                       ],
                     ),
 
+                    // Pending requests notification
+                    if (data['cloudSyncRequested'] == true || data['migrationRequested'] == true)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 2),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF9800).withAlpha(15),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFFF9800).withAlpha(40)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.notifications_active, size: 13, color: Color(0xFFFF9800)),
+                              const SizedBox(width: 6),
+                              Text(
+                                [
+                                  if (data['cloudSyncRequested'] == true) 'Cloud Sync',
+                                  if (data['migrationRequested'] == true) 'Migration',
+                                ].join(' + ') + ' Request',
+                                style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFFFF9800)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
                     const SizedBox(height: 10),
 
                     // Platform-specific status + expiry

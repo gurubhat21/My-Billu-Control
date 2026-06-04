@@ -58,15 +58,28 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     final data = widget.clientData;
     final email = data['id'] ?? data['email'] ?? 'Unknown';
     final displayName = data['displayName'] ?? email;
-    final deviceId = data['deviceId'] ?? 'N/A';
-    final deviceName = data['deviceName'] ?? '';
-    final deviceModel = data['deviceModel'] ?? '';
-    final platform = data['platform'] ?? '';
     final status = (data['status'] ?? data['subscriptionStatus'] ?? 'trial').toString();
     final lastOnline = data['lastOnline'] as Timestamp? ?? data['lastOnlineAt'] as Timestamp?;
     final registeredAt = data['registeredAt'] as Timestamp?;
     final expiryDate = data['expiryDate'] as Timestamp?;
     final appVersion = data['appVersion'] ?? '';
+
+    // Legacy fields
+    final deviceId = data['deviceId'] ?? 'N/A';
+    final deviceName = data['deviceName'] ?? '';
+    final deviceModel = data['deviceModel'] ?? '';
+    final platform = data['platform'] ?? '';
+
+    // Platform-specific fields
+    final androidDeviceId = data['androidDeviceId'] ?? '';
+    final androidDeviceName = data['androidDeviceName'] ?? '';
+    final androidDeviceModel = data['androidDeviceModel'] ?? '';
+    final windowsDeviceId = data['windowsDeviceId'] ?? '';
+    final windowsDeviceName = data['windowsDeviceName'] ?? '';
+    final windowsDeviceModel = data['windowsDeviceModel'] ?? '';
+    final hasAndroid = androidDeviceId.toString().isNotEmpty;
+    final hasWindows = windowsDeviceId.toString().isNotEmpty;
+    final hasLegacyOnly = !hasAndroid && !hasWindows && deviceId != 'N/A';
 
     return Scaffold(
       body: Container(
@@ -128,11 +141,83 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                       _buildSectionCard('Client Information', Icons.person, const Color(0xFF448AFF), [
                         _buildDetailRow(Icons.email, 'Email', email),
                         _buildDetailRow(Icons.badge, 'Name', displayName),
-                        _buildDetailRow(Icons.phone_android, 'Device', '$deviceName $deviceModel'.trim()),
-                        _buildDetailRow(Icons.devices, 'Platform', platform),
-                        _buildDetailRow(Icons.fingerprint, 'Device ID', deviceId),
                         _buildDetailRow(Icons.update, 'App Version', appVersion),
                       ]),
+
+                      const SizedBox(height: 12),
+
+                      // ====== ANDROID DEVICE SECTION ======
+                      _buildSectionCard(
+                        'Android Device',
+                        Icons.phone_android,
+                        const Color(0xFF4CAF50),
+                        hasAndroid
+                          ? [
+                              _buildDetailRow(Icons.phone_android, 'Device', '$androidDeviceName $androidDeviceModel'.trim()),
+                              _buildDetailRow(Icons.fingerprint, 'Device ID', androidDeviceId.toString()),
+                            ]
+                          : [
+                              _buildDetailRow(Icons.info_outline, 'Status', 'No Android device registered'),
+                            ],
+                        trailing: hasAndroid
+                          ? _buildMigrateChip('Migrate', const Color(0xFF4CAF50), () => _showMigrateDialog(email, 'android'))
+                          : null,
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // ====== WINDOWS DEVICE SECTION ======
+                      _buildSectionCard(
+                        'Windows Device',
+                        Icons.desktop_windows,
+                        const Color(0xFF448AFF),
+                        hasWindows
+                          ? [
+                              _buildDetailRow(Icons.desktop_windows, 'Device', '$windowsDeviceName $windowsDeviceModel'.trim()),
+                              _buildDetailRow(Icons.fingerprint, 'Device ID', windowsDeviceId.toString()),
+                            ]
+                          : [
+                              _buildDetailRow(Icons.info_outline, 'Status', 'No Windows device registered'),
+                            ],
+                        trailing: hasWindows
+                          ? _buildMigrateChip('Migrate', const Color(0xFF448AFF), () => _showMigrateDialog(email, 'windows'))
+                          : null,
+                      ),
+
+                      // ====== LEGACY DEVICE (backward compat) ======
+                      if (hasLegacyOnly) ...[
+                        const SizedBox(height: 12),
+                        _buildSectionCard('Legacy Device', Icons.devices_other, const Color(0xFF9E9E9E), [
+                          _buildDetailRow(Icons.phone_android, 'Device', '$deviceName $deviceModel'.trim()),
+                          _buildDetailRow(Icons.devices, 'Platform', platform),
+                          _buildDetailRow(Icons.fingerprint, 'Device ID', deviceId),
+                        ],
+                        trailing: _buildMigrateChip('Migrate All', const Color(0xFF009688), () => _showMigrateDialog(email, 'all')),
+                        ),
+                      ],
+
+                      const SizedBox(height: 12),
+
+                      // ====== PLATFORM STATUS BADGES ======
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha(8),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white.withAlpha(13)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.devices, size: 16, color: Colors.white38),
+                            const SizedBox(width: 10),
+                            Text('Platforms:', style: GoogleFonts.inter(fontSize: 13, color: Colors.white54, fontWeight: FontWeight.w500)),
+                            const SizedBox(width: 12),
+                            _buildPlatformBadge('Android', Icons.phone_android, hasAndroid, const Color(0xFF4CAF50)),
+                            const SizedBox(width: 8),
+                            _buildPlatformBadge('Windows', Icons.desktop_windows, hasWindows, const Color(0xFF448AFF)),
+                          ],
+                        ),
+                      ),
 
                       const SizedBox(height: 12),
 
@@ -382,6 +467,140 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       ),
       child: Text(status.toUpperCase(),
         style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+    );
+  }
+
+  Widget _buildPlatformBadge(String label, IconData icon, bool isActive, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive ? color.withAlpha(26) : Colors.white.withAlpha(5),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isActive ? color.withAlpha(77) : Colors.white.withAlpha(18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: isActive ? color : Colors.white24),
+          const SizedBox(width: 5),
+          Text(label,
+            style: GoogleFonts.inter(
+              fontSize: 11, fontWeight: FontWeight.w600,
+              color: isActive ? color : Colors.white24,
+            )),
+          const SizedBox(width: 4),
+          Icon(
+            isActive ? Icons.check_circle : Icons.cancel_outlined,
+            size: 12,
+            color: isActive ? color : Colors.white24,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMigrateChip(String label, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withAlpha(20),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withAlpha(51)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.phonelink_erase, size: 13, color: color),
+            const SizedBox(width: 5),
+            Text(label,
+              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMigrateDialog(String email, String platform) {
+    final reasonController = TextEditingController();
+    final platformLabel = platform == 'all' ? 'All Platforms' : platform[0].toUpperCase() + platform.substring(1);
+    final color = platform == 'android'
+        ? const Color(0xFF4CAF50)
+        : platform == 'windows'
+            ? const Color(0xFF448AFF)
+            : const Color(0xFF009688);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.phonelink_erase, color: color, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text('Migrate $platformLabel',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This will clear the $platformLabel device binding for $email, allowing them to register on a new device.',
+              style: GoogleFonts.inter(color: Colors.white60, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'Reason for migration',
+                labelStyle: GoogleFonts.inter(color: Colors.white38),
+                hintText: 'e.g., New phone, device lost...',
+                hintStyle: GoogleFonts.inter(color: Colors.white24),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white38)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final reason = reasonController.text.trim().isEmpty
+                  ? 'Admin migration'
+                  : reasonController.text.trim();
+              try {
+                await _service.migrateDevice(email, reason, platform: platform);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Device binding cleared ($platformLabel) for $email'),
+                    backgroundColor: const Color(0xFF4CAF50),
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: $e'),
+                    backgroundColor: const Color(0xFFF44336),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: color),
+            child: Text('Migrate', style: GoogleFonts.inter(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -59,19 +59,39 @@ class SubscriptionService {
   }
 
   /// Migrate device - clears device binding and logs reason
-  Future<void> migrateDevice(String email, String reason) async {
-    await _subscriptions.doc(email).update({
-      'deviceId': FieldValue.delete(),
-      'deviceName': FieldValue.delete(),
-      'deviceModel': FieldValue.delete(),
-      'platform': FieldValue.delete(),
-      'migrationHistory': FieldValue.arrayUnion([
-        {
-          'reason': reason,
-          'migratedAt': DateTime.now().toIso8601String(),
-        },
-      ]),
-    });
+  /// [platform] can be 'android', 'windows', or 'all' (default)
+  Future<void> migrateDevice(String email, String reason, {String platform = 'all'}) async {
+    final Map<String, dynamic> updateData = {};
+
+    if (platform == 'android' || platform == 'all') {
+      updateData['androidDeviceId'] = FieldValue.delete();
+      updateData['androidDeviceName'] = FieldValue.delete();
+      updateData['androidDeviceModel'] = FieldValue.delete();
+    }
+
+    if (platform == 'windows' || platform == 'all') {
+      updateData['windowsDeviceId'] = FieldValue.delete();
+      updateData['windowsDeviceName'] = FieldValue.delete();
+      updateData['windowsDeviceModel'] = FieldValue.delete();
+    }
+
+    if (platform == 'all') {
+      // Also clear legacy fields for backward compatibility
+      updateData['deviceId'] = FieldValue.delete();
+      updateData['deviceName'] = FieldValue.delete();
+      updateData['deviceModel'] = FieldValue.delete();
+      updateData['platform'] = FieldValue.delete();
+    }
+
+    updateData['migrationHistory'] = FieldValue.arrayUnion([
+      {
+        'reason': reason,
+        'platform': platform,
+        'migratedAt': DateTime.now().toIso8601String(),
+      },
+    ]);
+
+    await _subscriptions.doc(email).update(updateData);
   }
 
   /// Update admin notes

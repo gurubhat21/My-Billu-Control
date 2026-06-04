@@ -74,10 +74,18 @@ class _AdminScreenState extends State<AdminScreen>
         final name = (sub['displayName'] ?? '').toString().toLowerCase();
         final device = (sub['deviceName'] ?? '').toString().toLowerCase();
         final model = (sub['deviceModel'] ?? '').toString().toLowerCase();
+        final androidDevice = (sub['androidDeviceName'] ?? '').toString().toLowerCase();
+        final androidModel = (sub['androidDeviceModel'] ?? '').toString().toLowerCase();
+        final windowsDevice = (sub['windowsDeviceName'] ?? '').toString().toLowerCase();
+        final windowsModel = (sub['windowsDeviceModel'] ?? '').toString().toLowerCase();
         return email.contains(query) ||
             name.contains(query) ||
             device.contains(query) ||
-            model.contains(query);
+            model.contains(query) ||
+            androidDevice.contains(query) ||
+            androidModel.contains(query) ||
+            windowsDevice.contains(query) ||
+            windowsModel.contains(query);
       }
 
       return true;
@@ -580,62 +588,110 @@ class _AdminScreenState extends State<AdminScreen>
   void _showMigrateDialog(Map<String, dynamic> sub) {
     final email = sub['id'] ?? sub['email'] ?? '';
     final reasonController = TextEditingController();
+    String selectedPlatform = 'all';
+
+    final hasAndroid = (sub['androidDeviceId'] ?? '').toString().isNotEmpty;
+    final hasWindows = (sub['windowsDeviceId'] ?? '').toString().isNotEmpty;
+    final hasLegacy = (sub['deviceId'] ?? '').toString().isNotEmpty;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.phonelink_erase, color: Color(0xFF009688), size: 22),
-            const SizedBox(width: 10),
-            Text('Migrate Device', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This will clear the device binding for $email, allowing them to register on a new device.',
-              style: GoogleFonts.inter(color: Colors.white60, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: reasonController,
-              style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                labelText: 'Reason for migration',
-                labelStyle: GoogleFonts.inter(color: Colors.white38),
-                hintText: 'e.g., New phone, device lost...',
-                hintStyle: GoogleFonts.inter(color: Colors.white24),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.phonelink_erase, color: Color(0xFF009688), size: 22),
+              const SizedBox(width: 10),
+              Text('Migrate Device', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This will clear the device binding for $email, allowing them to register on a new device.',
+                style: GoogleFonts.inter(color: Colors.white60, fontSize: 13),
               ),
-              maxLines: 2,
+              const SizedBox(height: 16),
+              Text('Platform to migrate:',
+                style: GoogleFonts.inter(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _buildPlatformChip('All', 'all', selectedPlatform, const Color(0xFF009688), (val) {
+                    setDialogState(() => selectedPlatform = val);
+                  }),
+                  if (hasAndroid || hasLegacy)
+                    _buildPlatformChip('Android', 'android', selectedPlatform, const Color(0xFF4CAF50), (val) {
+                      setDialogState(() => selectedPlatform = val);
+                    }),
+                  if (hasWindows)
+                    _buildPlatformChip('Windows', 'windows', selectedPlatform, const Color(0xFF448AFF), (val) {
+                      setDialogState(() => selectedPlatform = val);
+                    }),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  labelText: 'Reason for migration',
+                  labelStyle: GoogleFonts.inter(color: Colors.white38),
+                  hintText: 'e.g., New phone, device lost...',
+                  hintStyle: GoogleFonts.inter(color: Colors.white24),
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white38)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final reason = reasonController.text.trim().isEmpty
+                    ? 'Admin migration'
+                    : reasonController.text.trim();
+                try {
+                  await _service.migrateDevice(email, reason, platform: selectedPlatform);
+                  final platformLabel = selectedPlatform == 'all' ? 'all platforms' : selectedPlatform;
+                  _showSnackBar('Device binding cleared ($platformLabel) for $email', isSuccess: true);
+                  _loadData();
+                } catch (e) {
+                  _showSnackBar('Error: $e', isError: true);
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF009688)),
+              child: Text('Migrate', style: GoogleFonts.inter(color: Colors.white)),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white38)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final reason = reasonController.text.trim().isEmpty
-                  ? 'Admin migration'
-                  : reasonController.text.trim();
-              try {
-                await _service.migrateDevice(email, reason);
-                _showSnackBar('Device binding cleared for $email', isSuccess: true);
-                _loadData();
-              } catch (e) {
-                _showSnackBar('Error: $e', isError: true);
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF009688)),
-            child: Text('Migrate', style: GoogleFonts.inter(color: Colors.white)),
-          ),
-        ],
+      ),
+    );
+  }
+
+  Widget _buildPlatformChip(String label, String value, String selected, Color color, ValueChanged<String> onSelected) {
+    final isSelected = selected == value;
+    return GestureDetector(
+      onTap: () => onSelected(value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withAlpha(51) : Colors.white.withAlpha(8),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? color : Colors.white.withAlpha(26)),
+        ),
+        child: Text(label,
+          style: GoogleFonts.inter(
+            fontSize: 12, fontWeight: FontWeight.w600,
+            color: isSelected ? color : Colors.white38,
+          )),
       ),
     );
   }
@@ -909,6 +965,14 @@ class _ClientCardState extends State<_ClientCard>
     final registeredAt = data['registeredAt'] as Timestamp?;
     final notes = data['notes'] ?? '';
 
+    // Platform-specific device fields
+    final hasAndroid = (data['androidDeviceId'] ?? '').toString().isNotEmpty;
+    final hasWindows = (data['windowsDeviceId'] ?? '').toString().isNotEmpty;
+    final androidDeviceName = data['androidDeviceName'] ?? '';
+    final androidDeviceModel = data['androidDeviceModel'] ?? '';
+    final windowsDeviceName = data['windowsDeviceName'] ?? '';
+    final windowsDeviceModel = data['windowsDeviceModel'] ?? '';
+
     return FadeTransition(
       opacity: _fadeAnim,
       child: SlideTransition(
@@ -1026,6 +1090,44 @@ class _ClientCardState extends State<_ClientCard>
                             ),
                           ),
                         ),
+                        const SizedBox(width: 6),
+                        // Platform badges
+                        if (hasAndroid)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4CAF50).withAlpha(26),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFF4CAF50).withAlpha(51)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.phone_android, size: 12, color: Color(0xFF4CAF50)),
+                                SizedBox(width: 2),
+                                Icon(Icons.check, size: 10, color: Color(0xFF4CAF50)),
+                              ],
+                            ),
+                          ),
+                        if (hasWindows) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF448AFF).withAlpha(26),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFF448AFF).withAlpha(51)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.desktop_windows, size: 12, color: Color(0xFF448AFF)),
+                                SizedBox(width: 2),
+                                Icon(Icons.check, size: 10, color: Color(0xFF448AFF)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
 
@@ -1040,6 +1142,12 @@ class _ClientCardState extends State<_ClientCard>
                       expiryDate: expiryDate,
                       lastOnline: lastOnline,
                       registeredAt: registeredAt,
+                      hasAndroid: hasAndroid,
+                      androidDeviceName: androidDeviceName,
+                      androidDeviceModel: androidDeviceModel,
+                      hasWindows: hasWindows,
+                      windowsDeviceName: windowsDeviceName,
+                      windowsDeviceModel: windowsDeviceModel,
                     ),
 
                     // Notes
@@ -1143,11 +1251,39 @@ class _ClientCardState extends State<_ClientCard>
     required Timestamp? expiryDate,
     required Timestamp? lastOnline,
     required Timestamp? registeredAt,
+    bool hasAndroid = false,
+    String androidDeviceName = '',
+    String androidDeviceModel = '',
+    bool hasWindows = false,
+    String windowsDeviceName = '',
+    String windowsDeviceModel = '',
   }) {
     final rows = <Widget>[];
 
-    // Device info
-    if (deviceName.isNotEmpty || deviceModel.isNotEmpty) {
+    // Android device info
+    if (hasAndroid) {
+      final androidStr = [
+        if (androidDeviceName.isNotEmpty) androidDeviceName,
+        if (androidDeviceModel.isNotEmpty) androidDeviceModel,
+      ].join(' · ');
+      if (androidStr.isNotEmpty) {
+        rows.add(_buildInfoRow(Icons.phone_android, 'Android', androidStr, color: const Color(0xFF4CAF50)));
+      }
+    }
+
+    // Windows device info
+    if (hasWindows) {
+      final windowsStr = [
+        if (windowsDeviceName.isNotEmpty) windowsDeviceName,
+        if (windowsDeviceModel.isNotEmpty) windowsDeviceModel,
+      ].join(' · ');
+      if (windowsStr.isNotEmpty) {
+        rows.add(_buildInfoRow(Icons.desktop_windows, 'Windows', windowsStr, color: const Color(0xFF448AFF)));
+      }
+    }
+
+    // Legacy device info (backward compat)
+    if (!hasAndroid && !hasWindows && (deviceName.isNotEmpty || deviceModel.isNotEmpty)) {
       final deviceStr = [
         if (deviceName.isNotEmpty) deviceName,
         if (deviceModel.isNotEmpty) deviceModel,
@@ -1156,8 +1292,8 @@ class _ClientCardState extends State<_ClientCard>
       rows.add(_buildInfoRow(Icons.phone_android, 'Device', deviceStr));
     }
 
-    // Device ID
-    if (deviceId.isNotEmpty) {
+    // Legacy device ID (backward compat)
+    if (!hasAndroid && !hasWindows && deviceId.isNotEmpty) {
       rows.add(_buildInfoRow(Icons.fingerprint, 'ID', deviceId));
     }
 
@@ -1181,18 +1317,18 @@ class _ClientCardState extends State<_ClientCard>
     return Column(children: rows);
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(IconData icon, String label, String value, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          Icon(icon, size: 14, color: Colors.white24),
+          Icon(icon, size: 14, color: color?.withAlpha(153) ?? Colors.white24),
           const SizedBox(width: 8),
           Text(
             '$label: ',
             style: GoogleFonts.inter(
               fontSize: 12,
-              color: Colors.white30,
+              color: color?.withAlpha(128) ?? Colors.white30,
               fontWeight: FontWeight.w500,
             ),
           ),

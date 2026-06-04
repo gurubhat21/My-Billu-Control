@@ -95,7 +95,13 @@ class _AdminScreenState extends State<AdminScreen>
   String _getEffectiveStatus(Map<String, dynamic> sub) {
     final status = (sub['status'] ?? 'trial').toString().toLowerCase();
     if (status == 'active') {
-      final expiryDate = sub['expiryDate'] as Timestamp?;
+      Timestamp? expiryDate;
+      final raw = sub['expiryDate'];
+      if (raw is Timestamp) expiryDate = raw;
+      else if (raw is String) {
+        final dt = DateTime.tryParse(raw);
+        if (dt != null) expiryDate = Timestamp.fromDate(dt);
+      }
       if (expiryDate != null && expiryDate.toDate().isBefore(DateTime.now())) {
         return 'expired';
       }
@@ -557,7 +563,13 @@ class _AdminScreenState extends State<AdminScreen>
 
   void _showExpiryDialog(Map<String, dynamic> sub) async {
     final email = sub['id'] ?? sub['email'] ?? '';
-    final currentExpiry = sub['expiryDate'] as Timestamp?;
+    final raw = sub['expiryDate'];
+    Timestamp? currentExpiry;
+    if (raw is Timestamp) currentExpiry = raw;
+    else if (raw is String) {
+      final dt = DateTime.tryParse(raw);
+      if (dt != null) currentExpiry = Timestamp.fromDate(dt);
+    }
     DateTime initial = currentExpiry?.toDate() ?? DateTime.now().add(const Duration(days: 30));
     if (initial.isBefore(DateTime.now())) {
       initial = DateTime.now().add(const Duration(days: 30));
@@ -971,9 +983,9 @@ class _ClientCardState extends State<_ClientCard>
     final deviceModel = data['deviceModel'] ?? '';
     final deviceId = data['deviceId'] ?? '';
     final platform = data['platform'] ?? '';
-    final expiryDate = data['expiryDate'] as Timestamp?;
-    final lastOnline = data['lastOnline'] as Timestamp? ?? data['lastOnlineAt'] as Timestamp?;
-    final registeredAt = data['registeredAt'] as Timestamp?;
+    final expiryDate = _safeTimestamp(data['expiryDate']);
+    final lastOnline = _safeTimestamp(data['lastOnline']) ?? _safeTimestamp(data['lastOnlineAt']);
+    final registeredAt = _safeTimestamp(data['registeredAt']);
     final notes = data['notes'] ?? '';
 
     // Platform-specific device fields
@@ -1509,7 +1521,7 @@ class _ClientCardState extends State<_ClientCard>
           ),
           const SizedBox(width: 4),
           Text(
-            '$platform: ${status[0].toUpperCase()}${status.substring(1)}',
+            '$platform: ${status.isNotEmpty ? status[0].toUpperCase() + status.substring(1) : 'Unknown'}',
             style: GoogleFonts.inter(
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -1572,7 +1584,7 @@ class _ClientCardState extends State<_ClientCard>
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              status[0].toUpperCase() + status.substring(1),
+              status.isNotEmpty ? status[0].toUpperCase() + status.substring(1) : 'Unknown',
               style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: statusColor),
             ),
           ),

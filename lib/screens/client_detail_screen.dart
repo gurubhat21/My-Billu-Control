@@ -70,9 +70,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     final email = data['id'] ?? data['email'] ?? 'Unknown';
     final displayName = data['displayName'] ?? email;
     final status = (data['status'] ?? data['subscriptionStatus'] ?? 'trial').toString();
-    final lastOnline = data['lastOnline'] as Timestamp? ?? data['lastOnlineAt'] as Timestamp?;
-    final registeredAt = data['registeredAt'] as Timestamp?;
-    final expiryDate = data['expiryDate'] as Timestamp?;
+    final lastOnline = _safeTimestamp(data['lastOnline']) ?? _safeTimestamp(data['lastOnlineAt']);
+    final registeredAt = _safeTimestamp(data['registeredAt']);
+    final expiryDate = _safeTimestamp(data['expiryDate']);
     final appVersion = data['appVersion'] ?? '';
 
     // Legacy fields

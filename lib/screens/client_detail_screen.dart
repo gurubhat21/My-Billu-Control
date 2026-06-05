@@ -18,6 +18,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   final SubscriptionService _service = SubscriptionService();
   List<Map<String, dynamic>> _activityLog = [];
   bool _isLoading = true;
+  bool _logExpanded = false;
 
   @override
   void initState() {
@@ -34,6 +35,51 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       _activityLog = log;
       _isLoading = false;
     });
+  }
+
+  void _showClearLogDialog(String email) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.delete_forever, color: Color(0xFFF44336), size: 22),
+          const SizedBox(width: 10),
+          Text('Clear Activity Log', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        ]),
+        content: Text(
+          'Delete all ${_activityLog.length} activity log entries for this client?',
+          style: GoogleFonts.inter(color: Colors.white70, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: GoogleFonts.inter(color: Colors.white38)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await _service.clearActivityLog(email);
+                setState(() => _activityLog = []);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: const Text('Activity log cleared'),
+                  backgroundColor: const Color(0xFF4CAF50),
+                ));
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Error: $e'),
+                  backgroundColor: const Color(0xFFF44336),
+                ));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF44336)),
+            child: Text('Clear All', style: GoogleFonts.inter(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Safely convert a Firestore value to Timestamp (handles both Timestamp and String)
@@ -302,42 +348,78 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
 
                       const SizedBox(height: 12),
 
-                      // ====== ACTIVITY LOG ======
-                      _buildSectionCard(
-                        'Activity Log (${_activityLog.length} opens)',
-                        Icons.history,
-                        const Color(0xFFFF9800),
-                        [],
-                        trailing: _isLoading
-                            ? const SizedBox(width: 16, height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF9800)))
-                            : null,
-                      ),
-
-                      if (_isLoading)
-                        const Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(child: CircularProgressIndicator(color: Color(0xFF7C4DFF))),
-                        )
-                      else if (_activityLog.isEmpty)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(24),
+                      // ====== ACTIVITY LOG (EXPANDABLE) ======
+                      GestureDetector(
+                        onTap: () => setState(() => _logExpanded = !_logExpanded),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           decoration: BoxDecoration(
                             color: Colors.white.withAlpha(8),
-                            borderRadius: const BorderRadius.only(
-                              bottomLeft: Radius.circular(16),
-                              bottomRight: Radius.circular(16),
-                            ),
+                            borderRadius: _logExpanded
+                                ? const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16))
+                                : BorderRadius.circular(16),
                             border: Border.all(color: Colors.white.withAlpha(13)),
                           ),
-                          child: Center(
-                            child: Text('No activity recorded yet',
-                              style: GoogleFonts.inter(color: Colors.white30, fontSize: 14)),
+                          child: Row(
+                            children: [
+                              Icon(Icons.history, size: 18, color: const Color(0xFFFF9800)),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text(
+                                'Activity Log (${_activityLog.length} opens)',
+                                style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFFFF9800)),
+                              )),
+                              if (_activityLog.isNotEmpty) ...[
+                                GestureDetector(
+                                  onTap: () => _showClearLogDialog(email),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF44336).withAlpha(20),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                      const Icon(Icons.delete_outline, size: 14, color: Color(0xFFF44336)),
+                                      const SizedBox(width: 4),
+                                      Text('Clear', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFF44336))),
+                                    ]),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              Icon(
+                                _logExpanded ? Icons.expand_less : Icons.expand_more,
+                                size: 20, color: Colors.white38,
+                              ),
+                            ],
                           ),
-                        )
-                      else
-                        ..._buildActivityTimeline(),
+                        ),
+                      ),
+
+                      if (_logExpanded) ...[
+                        if (_isLoading)
+                          const Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Center(child: CircularProgressIndicator(color: Color(0xFF7C4DFF))),
+                          )
+                        else if (_activityLog.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withAlpha(8),
+                              borderRadius: const BorderRadius.only(
+                                bottomLeft: Radius.circular(16),
+                                bottomRight: Radius.circular(16),
+                              ),
+                              border: Border.all(color: Colors.white.withAlpha(13)),
+                            ),
+                            child: Center(
+                              child: Text('No activity recorded yet',
+                                style: GoogleFonts.inter(color: Colors.white30, fontSize: 14)),
+                            ),
+                          )
+                        else
+                          ..._buildActivityTimeline(),
+                      ],
 
                       const SizedBox(height: 32),
                     ],

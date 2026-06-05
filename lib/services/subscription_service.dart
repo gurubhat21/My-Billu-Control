@@ -277,6 +277,21 @@ class SubscriptionService {
     }
   }
 
+  /// Clear all activity log entries for a client
+  Future<void> clearActivityLog(String email) async {
+    final collection = _subscriptions.doc(email).collection('activity_log');
+    // Delete in batches of 100
+    QuerySnapshot snapshot;
+    do {
+      snapshot = await collection.limit(100).get();
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } while (snapshot.docs.length == 100);
+  }
+
   /// Set trial days for a client
   Future<void> setTrialDays(String email, int days, {String platform = 'all'}) async {
     final trialExpiry = DateTime.now().add(Duration(days: days));

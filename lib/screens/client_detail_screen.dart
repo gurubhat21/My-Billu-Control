@@ -758,7 +758,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                     context: context,
                     initialDate: DateTime.now().add(const Duration(days: 30)),
                     firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                    lastDate: DateTime(2070),
                   );
                   if (picked == null || !mounted) return;
                   try {
@@ -784,7 +784,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                     context: context,
                     initialDate: initial,
                     firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                    lastDate: DateTime(2070),
                   );
                   if (picked == null || !mounted) return;
                   try {

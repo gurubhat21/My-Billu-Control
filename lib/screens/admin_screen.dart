@@ -502,7 +502,7 @@ class _AdminScreenState extends State<AdminScreen>
       context: context,
       initialDate: selectedDate,
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+      lastDate: DateTime(2070),
       builder: (context, child) => _datePickerTheme(child),
     );
 
@@ -579,7 +579,7 @@ class _AdminScreenState extends State<AdminScreen>
       context: context,
       initialDate: initial,
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+      lastDate: DateTime(2070),
       builder: (context, child) => _datePickerTheme(child),
     );
 

@@ -195,7 +195,14 @@ class SubscriptionService {
       switch (status) {
         case 'active':
           // Check if actually expired
-          final expiryDate = data['expiryDate'] as Timestamp?;
+          Timestamp? expiryDate;
+          final rawExpiry = data['expiryDate'];
+          if (rawExpiry is Timestamp) {
+            expiryDate = rawExpiry;
+          } else if (rawExpiry is String) {
+            final dt = DateTime.tryParse(rawExpiry);
+            if (dt != null) expiryDate = Timestamp.fromDate(dt);
+          }
           if (expiryDate != null &&
               expiryDate.toDate().isBefore(DateTime.now())) {
             expired++;
@@ -256,8 +263,10 @@ class SubscriptionService {
         }).toList();
 
         list.sort((a, b) {
-          final aTime = a['timestamp'] as Timestamp?;
-          final bTime = b['timestamp'] as Timestamp?;
+          Timestamp? aTime;
+          Timestamp? bTime;
+          if (a['timestamp'] is Timestamp) aTime = a['timestamp'];
+          if (b['timestamp'] is Timestamp) bTime = b['timestamp'];
           if (aTime == null && bTime == null) return 0;
           if (aTime == null) return 1;
           if (bTime == null) return -1;

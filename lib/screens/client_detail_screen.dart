@@ -437,7 +437,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     // Group by date
     final Map<String, List<Map<String, dynamic>>> grouped = {};
     for (final log in _activityLog) {
-      final ts = log['timestamp'] as Timestamp?;
+      final ts = log['timestamp'] is Timestamp ? log['timestamp'] as Timestamp : null;
       if (ts == null) continue;
       final dateKey = DateFormat('dd MMM yyyy').format(ts.toDate());
       grouped.putIfAbsent(dateKey, () => []);
@@ -479,7 +479,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
 
       for (int i = 0; i < entry.value.length; i++) {
         final log = entry.value[i];
-        final ts = log['timestamp'] as Timestamp?;
+        final ts = log['timestamp'] is Timestamp ? log['timestamp'] as Timestamp : null;
         final time = ts != null ? DateFormat('hh:mm a').format(ts.toDate()) : '??';
         final deviceName = log['deviceName'] ?? '';
         final type = log['type'] ?? 'app_open';

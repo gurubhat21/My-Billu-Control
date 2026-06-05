@@ -36,8 +36,8 @@ class _AdminScreenState extends State<AdminScreen>
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadData({bool isRefresh = false}) async {
+    if (!isRefresh) setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
         _service.getAllSubscriptions(),
@@ -166,7 +166,7 @@ class _AdminScreenState extends State<AdminScreen>
               _buildAppBar(),
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: _loadData,
+                  onRefresh: () => _loadData(isRefresh: true),
                   color: const Color(0xFF7C4DFF),
                   backgroundColor: const Color(0xFF141929),
                   child: _isLoading

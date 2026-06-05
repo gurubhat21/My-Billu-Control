@@ -316,8 +316,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                           platformLabel: 'Android',
                           platformIcon: Icons.phone_android,
                           platformColor: const Color(0xFF4CAF50),
-                          cloudSyncEnabled: _toBool(data['androidCloudSyncEnabled']) || _toBool(data['cloudSyncEnabled']),
-                          cloudSyncRequested: _toBool(data['androidCloudSyncRequested']) || _toBool(data['cloudSyncRequested']),
+                          cloudSyncEnabled: _toBool(data['androidCloudSyncEnabled']),
+                          cloudSyncRequested: _toBool(data['androidCloudSyncRequested']),
                         ),
 
                       if ((data['androidDeviceId'] ?? '').toString().isNotEmpty &&
@@ -332,8 +332,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                           platformLabel: 'Windows',
                           platformIcon: Icons.desktop_windows,
                           platformColor: const Color(0xFF448AFF),
-                          cloudSyncEnabled: _toBool(data['windowsCloudSyncEnabled']) || _toBool(data['cloudSyncEnabled']),
-                          cloudSyncRequested: _toBool(data['windowsCloudSyncRequested']) || _toBool(data['cloudSyncRequested']),
+                          cloudSyncEnabled: _toBool(data['windowsCloudSyncEnabled']),
+                          cloudSyncRequested: _toBool(data['windowsCloudSyncRequested']),
                         ),
 
                       // ====== MIGRATION REQUEST ======

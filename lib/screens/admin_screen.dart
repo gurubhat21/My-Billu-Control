@@ -1186,7 +1186,7 @@ class _ClientCardState extends State<_ClientCard>
                     ),
 
                     // Pending requests notification
-                    if (_toBool(data['cloudSyncRequested']) || _toBool(data['androidCloudSyncRequested']) || _toBool(data['windowsCloudSyncRequested']) || _toBool(data['migrationRequested']))
+                    if (_toBool(data['androidCloudSyncRequested']) || _toBool(data['windowsCloudSyncRequested']) || _toBool(data['migrationRequested']))
                       Padding(
                         padding: const EdgeInsets.only(top: 8, bottom: 2),
                         child: Container(
@@ -1203,7 +1203,7 @@ class _ClientCardState extends State<_ClientCard>
                               const SizedBox(width: 6),
                               Text(
                                 [
-                                  if (_toBool(data['androidCloudSyncRequested']) || _toBool(data['cloudSyncRequested'])) 'Android Sync',
+                                  if (_toBool(data['androidCloudSyncRequested'])) 'Android Sync',
                                   if (_toBool(data['windowsCloudSyncRequested'])) 'Windows Sync',
                                   if (_toBool(data['migrationRequested'])) 'Migration',
                                 ].join(' + ') + ' Request',

@@ -138,8 +138,6 @@ class SubscriptionService {
     if (platform == 'windows' || platform == 'all') {
       updates['windowsCloudSyncEnabled'] = enabled;
     }
-    // Legacy field for backward compat
-    updates['cloudSyncEnabled'] = enabled;
     await _subscriptions.doc(email).update(updates);
   }
 
@@ -156,9 +154,6 @@ class SubscriptionService {
       updates['windowsCloudSyncEnabled'] = true;
       updates['windowsCloudSyncRequested'] = false;
     }
-    // Legacy
-    updates['cloudSyncEnabled'] = true;
-    updates['cloudSyncRequested'] = false;
     await _subscriptions.doc(email).update(updates);
   }
 
@@ -171,7 +166,6 @@ class SubscriptionService {
     if (platform == 'windows' || platform == 'all') {
       updates['windowsCloudSyncRequested'] = false;
     }
-    updates['cloudSyncRequested'] = false;
     await _subscriptions.doc(email).update(updates);
   }
 

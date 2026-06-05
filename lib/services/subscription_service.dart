@@ -169,16 +169,19 @@ class SubscriptionService {
     await _subscriptions.doc(email).update(updates);
   }
 
-  /// Update expiry date only
+  /// Update expiry date and re-activate subscription
   Future<void> updateExpiry(String email, DateTime newExpiry, {String platform = 'all'}) async {
     final updates = <String, dynamic>{};
     if (platform == 'android' || platform == 'all') {
       updates['androidExpiryDate'] = Timestamp.fromDate(newExpiry);
+      updates['androidStatus'] = 'active';
     }
     if (platform == 'windows' || platform == 'all') {
       updates['windowsExpiryDate'] = Timestamp.fromDate(newExpiry);
+      updates['windowsStatus'] = 'active';
     }
     updates['expiryDate'] = Timestamp.fromDate(newExpiry);
+    updates['subscriptionStatus'] = 'active';
     await _subscriptions.doc(email).update(updates);
   }
 

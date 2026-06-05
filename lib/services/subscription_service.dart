@@ -129,9 +129,50 @@ class SubscriptionService {
     await _subscriptions.doc(email).delete();
   }
 
-  /// Toggle cloud sync for a client
-  Future<void> toggleCloudSync(String email, bool enabled) async {
-    await _subscriptions.doc(email).update({'cloudSyncEnabled': enabled});
+  /// Toggle cloud sync for a client per platform
+  Future<void> toggleCloudSync(String email, bool enabled, {String platform = 'all'}) async {
+    final updates = <String, dynamic>{};
+    if (platform == 'android' || platform == 'all') {
+      updates['androidCloudSyncEnabled'] = enabled;
+    }
+    if (platform == 'windows' || platform == 'all') {
+      updates['windowsCloudSyncEnabled'] = enabled;
+    }
+    // Legacy field for backward compat
+    updates['cloudSyncEnabled'] = enabled;
+    await _subscriptions.doc(email).update(updates);
+  }
+
+  /// Approve cloud sync request per platform
+  Future<void> approveCloudSync(String email, {String platform = 'all'}) async {
+    final updates = <String, dynamic>{
+      'cloudSyncApprovedAt': FieldValue.serverTimestamp(),
+    };
+    if (platform == 'android' || platform == 'all') {
+      updates['androidCloudSyncEnabled'] = true;
+      updates['androidCloudSyncRequested'] = false;
+    }
+    if (platform == 'windows' || platform == 'all') {
+      updates['windowsCloudSyncEnabled'] = true;
+      updates['windowsCloudSyncRequested'] = false;
+    }
+    // Legacy
+    updates['cloudSyncEnabled'] = true;
+    updates['cloudSyncRequested'] = false;
+    await _subscriptions.doc(email).update(updates);
+  }
+
+  /// Deny cloud sync request per platform
+  Future<void> denyCloudSync(String email, {String platform = 'all'}) async {
+    final updates = <String, dynamic>{};
+    if (platform == 'android' || platform == 'all') {
+      updates['androidCloudSyncRequested'] = false;
+    }
+    if (platform == 'windows' || platform == 'all') {
+      updates['windowsCloudSyncRequested'] = false;
+    }
+    updates['cloudSyncRequested'] = false;
+    await _subscriptions.doc(email).update(updates);
   }
 
   /// Update expiry date only
@@ -252,22 +293,6 @@ class SubscriptionService {
     updates['status'] = 'trial';
     updates['expiryDate'] = Timestamp.fromDate(trialExpiry);
     await _subscriptions.doc(email).update(updates);
-  }
-
-  /// Approve cloud sync request
-  Future<void> approveCloudSync(String email) async {
-    await _subscriptions.doc(email).update({
-      'cloudSyncEnabled': true,
-      'cloudSyncRequested': false,
-      'cloudSyncApprovedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  /// Deny cloud sync request
-  Future<void> denyCloudSync(String email) async {
-    await _subscriptions.doc(email).update({
-      'cloudSyncRequested': false,
-    });
   }
 
   /// Approve migration request

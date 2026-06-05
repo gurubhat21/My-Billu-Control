@@ -953,6 +953,13 @@ class _ClientCardState extends State<_ClientCard>
     return DateFormat('dd MMM yyyy').format(date);
   }
 
+  bool _toBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    return false;
+  }
+
   String _getDaysRemaining(Timestamp? expiryDate) {
     if (expiryDate == null) return '';
     final now = DateTime.now();
@@ -999,7 +1006,7 @@ class _ClientCardState extends State<_ClientCard>
     // Platform-specific subscription status
     final androidStatus = (data['androidStatus'] ?? '').toString();
     final windowsStatus = (data['windowsStatus'] ?? '').toString();
-    final cloudSyncEnabled = data['cloudSyncEnabled'] == true;
+    final cloudSyncEnabled = _toBool(data['cloudSyncEnabled']) || _toBool(data['androidCloudSyncEnabled']) || _toBool(data['windowsCloudSyncEnabled']);
 
     // Platform-specific expiry dates
     final androidExpiry = _safeTimestamp(data['androidExpiryDate']) ?? expiryDate;
@@ -1179,7 +1186,7 @@ class _ClientCardState extends State<_ClientCard>
                     ),
 
                     // Pending requests notification
-                    if (data['cloudSyncRequested'] == true || data['migrationRequested'] == true)
+                    if (_toBool(data['cloudSyncRequested']) || _toBool(data['androidCloudSyncRequested']) || _toBool(data['windowsCloudSyncRequested']) || _toBool(data['migrationRequested']))
                       Padding(
                         padding: const EdgeInsets.only(top: 8, bottom: 2),
                         child: Container(
@@ -1196,8 +1203,9 @@ class _ClientCardState extends State<_ClientCard>
                               const SizedBox(width: 6),
                               Text(
                                 [
-                                  if (data['cloudSyncRequested'] == true) 'Cloud Sync',
-                                  if (data['migrationRequested'] == true) 'Migration',
+                                  if (_toBool(data['androidCloudSyncRequested']) || _toBool(data['cloudSyncRequested'])) 'Android Sync',
+                                  if (_toBool(data['windowsCloudSyncRequested'])) 'Windows Sync',
+                                  if (_toBool(data['migrationRequested'])) 'Migration',
                                 ].join(' + ') + ' Request',
                                 style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFFFF9800)),
                               ),

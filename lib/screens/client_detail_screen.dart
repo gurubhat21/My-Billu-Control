@@ -262,15 +262,36 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
 
                       const SizedBox(height: 12),
 
-                      // ====== CLOUD SYNC ======
-                      _buildCloudSyncCard(
-                        email: email,
-                        cloudSyncEnabled: data['cloudSyncEnabled'] == true,
-                        cloudSyncRequested: data['cloudSyncRequested'] == true,
-                      ),
+                      // ====== CLOUD SYNC - ANDROID ======
+                      if ((data['androidDeviceId'] ?? '').toString().isNotEmpty)
+                        _buildCloudSyncCard(
+                          email: email,
+                          platform: 'android',
+                          platformLabel: 'Android',
+                          platformIcon: Icons.phone_android,
+                          platformColor: const Color(0xFF4CAF50),
+                          cloudSyncEnabled: _toBool(data['androidCloudSyncEnabled']) || _toBool(data['cloudSyncEnabled']),
+                          cloudSyncRequested: _toBool(data['androidCloudSyncRequested']) || _toBool(data['cloudSyncRequested']),
+                        ),
+
+                      if ((data['androidDeviceId'] ?? '').toString().isNotEmpty &&
+                          (data['windowsDeviceId'] ?? '').toString().isNotEmpty)
+                        const SizedBox(height: 8),
+
+                      // ====== CLOUD SYNC - WINDOWS ======
+                      if ((data['windowsDeviceId'] ?? '').toString().isNotEmpty)
+                        _buildCloudSyncCard(
+                          email: email,
+                          platform: 'windows',
+                          platformLabel: 'Windows',
+                          platformIcon: Icons.desktop_windows,
+                          platformColor: const Color(0xFF448AFF),
+                          cloudSyncEnabled: _toBool(data['windowsCloudSyncEnabled']) || _toBool(data['cloudSyncEnabled']),
+                          cloudSyncRequested: _toBool(data['windowsCloudSyncRequested']) || _toBool(data['cloudSyncRequested']),
+                        ),
 
                       // ====== MIGRATION REQUEST ======
-                      if (data['migrationRequested'] == true) ...[
+                      if (_toBool(data['migrationRequested'])) ...[
                         const SizedBox(height: 12),
                         _buildMigrationRequestCard(
                           email: email,
@@ -744,8 +765,20 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     );
   }
 
+  /// Helper: handles both bool true and String 'true' from REST API
+  bool _toBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    return false;
+  }
+
   Widget _buildCloudSyncCard({
     required String email,
+    required String platform,
+    required String platformLabel,
+    required IconData platformIcon,
+    required Color platformColor,
     required bool cloudSyncEnabled,
     required bool cloudSyncRequested,
   }) {
@@ -765,28 +798,30 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.cloud_sync, size: 18, color: const Color(0xFF7C4DFF)),
-                    const SizedBox(width: 10),
-                    Text('Cloud Sync',
-                      style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF7C4DFF))),
+                    Icon(platformIcon, size: 16, color: platformColor),
+                    const SizedBox(width: 6),
+                    Icon(Icons.cloud_sync, size: 16, color: const Color(0xFF7C4DFF)),
+                    const SizedBox(width: 8),
+                    Text('$platformLabel Cloud Sync',
+                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF7C4DFF))),
                     const Spacer(),
-                    Text(syncEnabled ? 'Enabled' : 'Disabled',
+                    Text(syncEnabled ? 'ON' : 'OFF',
                       style: GoogleFonts.inter(
-                        fontSize: 12, fontWeight: FontWeight.w500,
+                        fontSize: 11, fontWeight: FontWeight.w600,
                         color: syncEnabled ? const Color(0xFF4CAF50) : Colors.white38,
                       )),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Switch(
                       value: syncEnabled,
-                      activeColor: const Color(0xFF7C4DFF),
+                      activeColor: platformColor,
                       onChanged: (value) async {
                         try {
-                          await _service.toggleCloudSync(email, value);
+                          await _service.toggleCloudSync(email, value, platform: platform);
                           setCardState(() => syncEnabled = value);
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('Cloud sync ${value ? 'enabled' : 'disabled'} for $email'),
-                            backgroundColor: const Color(0xFF7C4DFF),
+                            content: Text('$platformLabel cloud sync ${value ? 'enabled' : 'disabled'}'),
+                            backgroundColor: platformColor,
                           ));
                         } catch (e) {
                           if (!mounted) return;
@@ -812,17 +847,17 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                       children: [
                         const Icon(Icons.notifications_active, size: 16, color: Color(0xFFFF9800)),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('User requested cloud sync',
+                        Expanded(child: Text('$platformLabel sync requested',
                           style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFFFF9800), fontWeight: FontWeight.w500))),
                         const SizedBox(width: 8),
                         GestureDetector(
                           onTap: () async {
                             try {
-                              await _service.approveCloudSync(email);
+                              await _service.approveCloudSync(email, platform: platform);
                               setCardState(() { syncEnabled = true; requested = false; });
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                content: Text('Cloud sync approved for $email'),
+                                content: Text('$platformLabel sync approved'),
                                 backgroundColor: const Color(0xFF4CAF50),
                               ));
                             } catch (e) {
@@ -845,11 +880,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                         GestureDetector(
                           onTap: () async {
                             try {
-                              await _service.denyCloudSync(email);
+                              await _service.denyCloudSync(email, platform: platform);
                               setCardState(() => requested = false);
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                content: Text('Cloud sync request denied for $email'),
+                                content: Text('$platformLabel sync denied'),
                                 backgroundColor: const Color(0xFFF44336),
                               ));
                             } catch (e) {

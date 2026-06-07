@@ -344,11 +344,11 @@ class _AdminScreenState extends State<AdminScreen>
 
   Widget _buildStatsBar() {
     final statItems = [
-      _StatItem('Total', _stats['total'] ?? 0, const Color(0xFF448AFF), Icons.people),
-      _StatItem('Active', _stats['active'] ?? 0, const Color(0xFF4CAF50), Icons.check_circle),
-      _StatItem('Trial', _stats['trial'] ?? 0, const Color(0xFFFF9800), Icons.hourglass_top),
-      _StatItem('Expired', _stats['expired'] ?? 0, const Color(0xFFF44336), Icons.timer_off),
-      _StatItem('Revoked', _stats['revoked'] ?? 0, const Color(0xFFB71C1C), Icons.block),
+      _StatItem('Total', _stats['total'] ?? 0, const Color(0xFF448AFF), Icons.people, 'All'),
+      _StatItem('Active', _stats['active'] ?? 0, const Color(0xFF4CAF50), Icons.check_circle, 'Active'),
+      _StatItem('Trial', _stats['trial'] ?? 0, const Color(0xFFFF9800), Icons.hourglass_top, 'Trial'),
+      _StatItem('Expired', _stats['expired'] ?? 0, const Color(0xFFF44336), Icons.timer_off, 'Expired'),
+      _StatItem('Revoked', _stats['revoked'] ?? 0, const Color(0xFFB71C1C), Icons.block, 'Revoked'),
     ];
 
     return SizedBox(
@@ -359,53 +359,67 @@ class _AdminScreenState extends State<AdminScreen>
         itemCount: statItems.length,
         itemBuilder: (context, index) {
           final item = statItems[index];
-          return Container(
-            width: 120,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  item.color.withAlpha(38),
-                  item.color.withAlpha(13),
-                ],
+          final isActive = _filterStatus == item.filterValue;
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _filterStatus = isActive ? 'All' : item.filterValue;
+                _applyFilters();
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 120,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    item.color.withAlpha(isActive ? 77 : 38),
+                    item.color.withAlpha(isActive ? 38 : 13),
+                  ],
+                ),
+                border: Border.all(
+                  color: isActive ? item.color : item.color.withAlpha(38),
+                  width: isActive ? 2 : 1,
+                ),
+                boxShadow: isActive
+                    ? [BoxShadow(color: item.color.withAlpha(51), blurRadius: 10, spreadRadius: 0)]
+                    : [],
               ),
-              border: Border.all(
-                color: item.color.withAlpha(38),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Icon(item.icon, color: item.color, size: 16),
-                      const Spacer(),
-                      Text(
-                        '${item.count}',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: item.color,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(item.icon, color: item.color, size: 16),
+                        const Spacer(),
+                        Text(
+                          '${item.count}',
+                          style: GoogleFonts.inter(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: item.color,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.label,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: item.color.withAlpha(179),
-                      fontWeight: FontWeight.w500,
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      item.label,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: isActive ? item.color : item.color.withAlpha(179),
+                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -852,8 +866,9 @@ class _StatItem {
   final int count;
   final Color color;
   final IconData icon;
+  final String filterValue;
 
-  _StatItem(this.label, this.count, this.color, this.icon);
+  _StatItem(this.label, this.count, this.color, this.icon, this.filterValue);
 }
 
 // ======================== CLIENT CARD ========================

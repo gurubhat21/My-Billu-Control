@@ -44,9 +44,11 @@ class _AdminScreenState extends State<AdminScreen>
         _service.getStats(),
       ]);
       if (!mounted) return;
+      _allSubscriptions = results[0] as List<Map<String, dynamic>>;
+      _stats = results[1] as Map<String, int>;
+      // Auto-expire clients whose expiry date has passed
+      await _autoExpireClients();
       setState(() {
-        _allSubscriptions = results[0] as List<Map<String, dynamic>>;
-        _stats = results[1] as Map<String, int>;
         _applyFilters();
         _isLoading = false;
       });
@@ -54,6 +56,45 @@ class _AdminScreenState extends State<AdminScreen>
       if (!mounted) return;
       setState(() => _isLoading = false);
       _showSnackBar('Error loading data: $e', isError: true);
+    }
+  }
+
+  Future<void> _autoExpireClients() async {
+    final now = DateTime.now();
+    int expiredCount = 0;
+    for (final sub in _allSubscriptions) {
+      final status = (sub['subscriptionStatus'] ?? sub['status'] ?? '').toString().toLowerCase();
+      if (status != 'active' && status != 'trial') continue;
+      Timestamp? expiryTs;
+      final raw = sub['expiryDate'];
+      if (raw is Timestamp) expiryTs = raw;
+      else if (raw is String) {
+        final dt = DateTime.tryParse(raw);
+        if (dt != null) expiryTs = Timestamp.fromDate(dt);
+      }
+      if (expiryTs == null) continue;
+      if (expiryTs.toDate().isBefore(now)) {
+        final email = (sub['email'] ?? sub['id'] ?? '').toString();
+        if (email.isNotEmpty) {
+          try {
+            await FirebaseFirestore.instance.collection('subscriptions').doc(email).update({
+              'subscriptionStatus': 'expired',
+              'androidStatus': 'expired',
+              'status': 'expired',
+            });
+            sub['subscriptionStatus'] = 'expired';
+            sub['androidStatus'] = 'expired';
+            sub['status'] = 'expired';
+            expiredCount++;
+          } catch (_) {}
+        }
+      }
+    }
+    if (expiredCount > 0) {
+      // Refresh stats after auto-expiration
+      try {
+        _stats = await _service.getStats();
+      } catch (_) {}
     }
   }
 
@@ -93,8 +134,8 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   String _getEffectiveStatus(Map<String, dynamic> sub) {
-    final status = (sub['status'] ?? 'trial').toString().toLowerCase();
-    if (status == 'active') {
+    final status = (sub['subscriptionStatus'] ?? sub['status'] ?? 'trial').toString().toLowerCase();
+    if (status == 'active' || status == 'trial') {
       Timestamp? expiryDate;
       final raw = sub['expiryDate'];
       if (raw is Timestamp) expiryDate = raw;
@@ -1019,8 +1060,8 @@ class _ClientCardState extends State<_ClientCard>
     final windowsDeviceModel = data['windowsDeviceModel'] ?? '';
 
     // Platform-specific subscription status
-    final androidStatus = (data['androidStatus'] ?? '').toString();
-    final windowsStatus = (data['windowsStatus'] ?? '').toString();
+    String androidStatus = (data['androidStatus'] ?? '').toString();
+    String windowsStatus = (data['windowsStatus'] ?? '').toString();
     final cloudSyncEnabled = _toBool(data['cloudSyncEnabled']) || _toBool(data['androidCloudSyncEnabled']) || _toBool(data['windowsCloudSyncEnabled']);
 
     // Platform-specific expiry dates
@@ -1028,6 +1069,17 @@ class _ClientCardState extends State<_ClientCard>
     final windowsExpiry = _safeTimestamp(data['windowsExpiryDate']) ?? expiryDate;
     final androidLastOnline = _safeTimestamp(data['androidLastOnlineAt']) ?? lastOnline;
     final windowsLastOnline = _safeTimestamp(data['windowsLastOnlineAt']) ?? lastOnline;
+
+    // Auto-fix display: if expiry passed but status still active/trial, show as expired
+    final now = DateTime.now();
+    if (androidExpiry != null && androidExpiry.toDate().isBefore(now) &&
+        (androidStatus.toLowerCase() == 'active' || androidStatus.toLowerCase() == 'trial')) {
+      androidStatus = 'expired';
+    }
+    if (windowsExpiry != null && windowsExpiry.toDate().isBefore(now) &&
+        (windowsStatus.toLowerCase() == 'active' || windowsStatus.toLowerCase() == 'trial')) {
+      windowsStatus = 'expired';
+    }
 
     return FadeTransition(
       opacity: _fadeAnim,

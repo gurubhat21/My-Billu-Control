@@ -115,11 +115,16 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     final data = widget.clientData;
     final email = data['id'] ?? data['email'] ?? 'Unknown';
     final displayName = data['displayName'] ?? email;
-    final status = (data['status'] ?? data['subscriptionStatus'] ?? 'trial').toString();
+    String status = (data['subscriptionStatus'] ?? data['status'] ?? 'trial').toString();
     final lastOnline = _safeTimestamp(data['lastOnline']) ?? _safeTimestamp(data['lastOnlineAt']);
     final registeredAt = _safeTimestamp(data['registeredAt']);
     final expiryDate = _safeTimestamp(data['expiryDate']);
     final appVersion = data['appVersion'] ?? '';
+    // Auto-detect expired: if expiry passed but status is still active/trial
+    if (expiryDate != null && expiryDate.toDate().isBefore(DateTime.now()) &&
+        (status.toLowerCase() == 'active' || status.toLowerCase() == 'trial')) {
+      status = 'expired';
+    }
 
     // Legacy fields
     final deviceId = data['deviceId'] ?? 'N/A';
